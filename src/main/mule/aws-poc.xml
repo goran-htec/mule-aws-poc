@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dynamodb="http://www.mulesoft.org/schema/mule/dynamodb" xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/dynamodb http://www.mulesoft.org/schema/mule/dynamodb/current/mule-dynamodb.xsd">
+	<http:listener-config name="http-listener-config" doc:name="HTTP Listener config" doc:id="c1efd07d-f4c8-46e7-be0f-42636975eafe" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	
+	<configuration-properties file="properties.yaml"/>
+	
+	<sqs:config name="aws-sqs-config" doc:name="Amazon SQS Configuration" doc:id="4024373d-d6c2-4eeb-8431-5b9623f71eba" >
+		<sqs:basic-connection testQueueArn="${aws.sqs.user.register.arn}" accessKey="${aws.demo.key}" secretKey="${aws.demo.secret}" region="${aws.demo.region}" />
+	</sqs:config>
+	<dynamodb:config name="aws-dynamodb-config" doc:name="Amazon DynamoDB Configuration" doc:id="6e5467ae-d462-4833-92c0-1d35430f9cab" >
+		<dynamodb:basic-connection accessKey="${aws.demo.key}" secretKey="${aws.demo.secret}" region="${aws.demo.region}" />
+	</dynamodb:config>
+	<flow name="aws-sqs-publisher" doc:id="4953d2c2-a0b6-48a4-8ca1-3c23a10bc917" >
+		<http:listener doc:name="Listener" doc:id="6ab46b47-ca1f-42ad-b88f-37e392c63f56" config-ref="http-listener-config" path="/register"/>
+		<set-variable value="#[uuid()]" doc:name="Generate the UUID" doc:id="9e8bac21-17c3-4863-b558-f019aea2e075" variableName="id"/>
+		<ee:transform doc:name="Transform Message" doc:id="4dbb45d2-abe2-4f21-ab51-8cc3ecbcd34a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	id: vars.id as String,
+	firstName: payload.firstName as String,
+	lastName: payload.lastName as String,
+	role: payload.role as String default "user",
+	email: payload.email as String
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<async doc:name="Async" doc:id="8ae0395e-6d19-49fc-850f-98e330fe5f0d" >
+			<sqs:send-message doc:name="Queue the user registration action" doc:id="673404de-1230-4db2-9f9c-16be71b5e4f3" config-ref="aws-sqs-config" queueUrl="${aws.sqs.user.register.url}">
+			<sqs:message><![CDATA[#[%dw 2.0
+output application/java
+---
+{
+	delaySeconds: 0,
+	body: write(payload, 'application/json')
+} as Object {
+	class: "org.mule.extension.sqs.api.model.Message"
+}]]]></sqs:message>
+		</sqs:send-message>
+			<logger level="INFO" doc:name="Logger" doc:id="ec991b15-079a-4e16-9084-03fcda904bce" />
+		</async>
+	</flow>
+	<flow name="aws-sqs-subscriber" doc:id="d85edd0e-0f30-475f-a54e-b4af0d63a37a" >
+		<sqs:receivemessages doc:name="Poll for the user registration messages" doc:id="f25b7f8d-2ba1-4893-8f4b-ed0e8346553f" config-ref="aws-sqs-config" queueUrl="${aws.sqs.user.register.url}"/>
+		<ee:transform doc:name="Transform Message" doc:id="c30e4914-2105-48e9-8f66-ac311ec79ee7" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var jsonPayload = read(payload, 'application/json')
+---
+{
+	id: jsonPayload.id as String,
+	firstName: jsonPayload.firstName as String,
+	lastName: jsonPayload.lastName as String,
+	role: jsonPayload.role as String,
+	email: jsonPayload.email as String
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<dynamodb:put-item doc:name="Register the user" doc:id="2ebc7588-8dc3-4a75-b71e-6cb7081b9019" config-ref="aws-dynamodb-config" tableName="${aws.dynamodb.user.table}">
+			<dynamodb:item><![CDATA[#[output application/java
+---
+{
+	id: {
+		s: payload.id,
+	},
+	firstName: {
+		S: payload.firstName
+	},
+	lastName: {
+		S: payload.lastName
+	},
+	role: {
+		S: payload.role
+	},
+	email: {
+		S: payload.email
+	}
+}]]]></dynamodb:item>
+		</dynamodb:put-item>
+		<logger level="INFO" doc:name="Logger" doc:id="419ba4cd-9ba7-4433-bf7a-6bc76f3fa399" />
+	</flow>
+</mule>

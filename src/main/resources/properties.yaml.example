@@ -1,0 +1,14 @@
+aws:
+  demo:
+    key: "<aws-access-key>"
+    secret: "<aws-secret-key>"
+    region: "<aws-region>"
+  sqs:
+    user:
+      register:
+        queue: "user-register"
+        arn: "arn:aws:sqs:eu-west-1:006360958437:user-register"
+        url: "https://sqs.eu-west-1.amazonaws.com/006360958437/user-register"
+  dynamodb:
+    user:
+      table: "users"

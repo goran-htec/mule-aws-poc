@@ -1,0 +1,14 @@
+aws:
+  demo:
+    key: "AKIAQC6ZEQXSSH45YZ76"
+    secret: "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"
+    region: "eu-west-1"
+  sqs:
+    user:
+      register:
+        queue: "user-register"
+        arn: "arn:aws:sqs:eu-west-1:006360958437:user-register"
+        url: "https://sqs.eu-west-1.amazonaws.com/006360958437/user-register"
+  dynamodb:
+    user:
+      table: "users"

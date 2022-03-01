@@ -1,0 +1,44 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<types:mule xmlns:types="http://www.mulesoft.org/schema/mule/types">
+  <types:catalog>
+    <types:type name="request-user-payload-schema" format="json">
+      <types:shape format="json-schema" location="schemas/request-user-payload-schema.json"/>
+    </types:type>
+    <types:type name="response-user-payload-schema" format="json">
+      <types:shape format="json-schema" location="schemas/response-user-payload-schema.json"/>
+    </types:type>
+    <types:type name="dynamodb-user-schema" format="json">
+      <types:shape format="json-schema" location="schemas/dynamodb-user-schema.json"/>
+    </types:type>
+  </types:catalog>
+  <types:enrichment select="#4dbb45d2-abe2-4f21-ab51-8cc3ecbcd34a">
+    <types:processor-declaration>
+      <types:input-event>
+        <types:message>
+          <types:payload type="request-user-payload-schema"/>
+        </types:message>
+      </types:input-event>
+      <types:output-event>
+        <types:message>
+          <types:payload type="response-user-payload-schema"/>
+        </types:message>
+      </types:output-event>
+    </types:processor-declaration>
+  </types:enrichment>
+  <types:enrichment select="#c30e4914-2105-48e9-8f66-ac311ec79ee7">
+    <types:processor-declaration>
+      <types:output-event>
+        <types:message>
+          <types:payload type="response-user-payload-schema"/>
+        </types:message>
+      </types:output-event>
+    </types:processor-declaration>
+  </types:enrichment>
+  <types:enrichment select="#2ebc7588-8dc3-4a75-b71e-6cb7081b9019">
+    <types:operation-declaration>
+      <types:inputs>
+        <types:parameter name="item" type="dynamodb-user-schema"/>
+      </types:inputs>
+    </types:operation-declaration>
+  </types:enrichment>
+</types:mule>
